@@ -60,7 +60,7 @@ function(add_chrono_executable TARGET_NAME SOURCE_FILE)
 endfunction()
 
 # 添加示例程序
-add_chrono_executable(my_Scene ./my_Scene.cpp)
+add_chrono_executable(my_scene ./my_scene.cpp)
 
 # 打印成功信息
 message(STATUS "=== 项目配置完成 ===")
