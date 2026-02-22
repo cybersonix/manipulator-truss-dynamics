@@ -13,6 +13,7 @@ if ! command -v make &> /dev/null; then
     exit 1
 fi
 
+rm -rf build
 # 创建构建目录
 echo "创建构建目录..."
 mkdir -p build
@@ -20,7 +21,16 @@ cd build
 
 # 配置项目
 echo "配置CMake项目..."
-cmake .. -DCMAKE_BUILD_TYPE=Release
+
+cmake .. \
+    -DPYTHON_EXECUTABLE=$ENV{HOME}/miniconda3/bin/python3.13 \
+    -DPYTHON_INCLUDE_DIR=$ENV{HOME}/miniconda3/include/python3.13 \
+    -DPYTHON_LIBRARY=$ENV{HOME}/miniconda3/lib/libpython3.13.so \
+    -DPython3_ROOT_DIR=$ENV{HOME}/miniconda3 \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_PREFIX_PATH="$ENV{HOME}/urdf_install;$ENV{HOME}/vsgFramework/install;/usr/local/chrono" \
+    -DCMAKE_CXX_FLAGS="-Wno-unused-parameter" \
+    -DCMAKE_EXE_LINKER_FLAGS="-L/home/sun/miniconda3/lib -lpython3.13" \
 
 if [ $? -ne 0 ]; then
     echo "错误: CMake配置失败"

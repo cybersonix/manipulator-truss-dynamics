@@ -10,11 +10,18 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-list(APPEND CMAKE_PREFIX_PATH "/home/sun/vsgFramework/install")
-list(APPEND CMAKE_PREFIX_PATH "/usr/local")
+list(APPEND CMAKE_PREFIX_PATH
+    "$ENV{HOME}/urdf_install"
+    "$ENV{HOME}/vsgFramework/install"
+    "/usr/local/chrono"
+)
 
-# 查找Chrono库
-find_package(Chrono REQUIRED COMPONENTS vsg)
+# 查找 Chrono 库
+find_package(Chrono REQUIRED 
+    COMPONENTS 
+        Parsers    # 启用 PARSERS 模块
+        VSG        # 启用 VSG 模块
+)
 
 # 检查Chrono是否找到
 if(NOT Chrono_FOUND)
@@ -55,8 +62,8 @@ function(add_chrono_executable TARGET_NAME SOURCE_FILE)
     
     # 设置输出目录
     set_target_properties(${TARGET_NAME} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-    )
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 endfunction()
 
 # 添加示例程序
