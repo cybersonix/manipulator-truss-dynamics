@@ -258,15 +258,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         // 5. 获取根链接(link1)并固连到基座
         auto link1 = urdf_parser.GetRootChBody();
 
-        // 创建固定关节将根链接连接到body_base
+        // 创建固定关节将根链接连接到 body_base
         auto link1_to_base = chrono_types::make_shared<ChLinkMateFix>();
         link1_to_base->Initialize(link1, body_base, ChFrame<>(arm_mount_pos, QUNIT));
         sys.Add(link1_to_base);
-
+        
+        // 创建固定关节将 link8 连接到 body_star_right
         auto link8 = urdf_parser.GetChBody("link8");
-        // 创建固定关节将link8连接到body_star_left
         auto link8_to_star = chrono_types::make_shared<ChLinkMateFix>();
-        // 使用link8的当前位置作为连接点
         ChFrame<> link8_frame(link8->GetPos() + ChVector3d(0, 0, 0.05), QUNIT);
         link8_to_star->Initialize(link8, body_star_right, link8_frame);
         sys.Add(link8_to_star);
@@ -301,7 +300,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
             // 创建PD控制器
             auto controller = chrono_types::make_shared<TorqueController>();
-            controller->target_angle = end_angles[i];    // 目标：终止位姿
+            controller->target_angle = - end_angles[i] + init_angles[i];    // 目标：终止位姿
             controller->Kp = Kp_gains[i];                // 表5的Kp
             controller->Kd = Kd_gains[i];                // 表5的Kd
             controller->max_torque = 100.0;              // ±100 Nm饱和
@@ -310,8 +309,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
             // 设置电机的扭矩函数
             urdf_parser.SetMotorFunction(joint_names[i], controller);
         }
-
-        // std::cout << "[INFO] 成功配置 " << arm_motors.size() << " 个关节电机" << std::endl;
     }
     catch (const std::exception &e)
     {
