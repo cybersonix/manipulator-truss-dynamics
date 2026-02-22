@@ -17,49 +17,49 @@ using namespace chrono::fea;
 using namespace chrono::parsers;
 using namespace chrono::vsg3d;
 
-// class TorqueController : public ChFunction
-// {
-// public:
-//     double target_angle = 0;
-//     double Kp = 800.0;
-//     double Kd = 80.0;
-//     double max_torque = 400.0;
-//     std::shared_ptr<ChLinkMotorRotation> motor;
+class TorqueController : public ChFunction
+{
+public:
+    double target_angle = 0;
+    double Kp = 0.0;        // 从表5获取
+    double Kd = 0.0;        // 从表5获取
+    double max_torque = 100.0;  // ±100 Nm饱和限制
+    std::shared_ptr<ChLinkMotorRotation> motor;
 
-//     virtual double GetVal(double x) const override
-//     {
-//         if (!motor)
-//             return 0;
+    virtual double GetVal(double x) const override
+    {
+        if (!motor)
+            return 0;
 
-//         double current_angle = motor->GetMotorRot();
-//         double current_vel = motor->GetMotorRot_dt();
-//         double error = target_angle - current_angle;
+        double current_angle = motor->GetMotorAngle();
+        double current_vel = motor->GetMotorAngleDt();
+        double error = target_angle - current_angle;
 
-//         // PID控制
-//         double torque = Kp * error - Kd * current_vel;
+        // PD控制：τ = Kp*(qd - qact) + Kd*(0 - qact_dot) = Kp*error - Kd*current_vel
+        double torque = Kp * error - Kd * current_vel;
 
-//         // 限幅
-//         if (torque > max_torque)
-//             torque = max_torque;
-//         if (torque < -max_torque)
-//             torque = -max_torque;
+        // 饱和限制 ±100 Nm
+        if (torque > max_torque)
+            torque = max_torque;
+        if (torque < -max_torque)
+            torque = -max_torque;
 
-//         return torque;
-//     }
+        return torque;
+    }
 
-//     virtual double GetDer(double x) const override { return 0; }
+    virtual double GetDer(double x) const override { return 0; }
 
-//     virtual std::shared_ptr<ChFunction> Clone() const override
-//     {
-//         auto new_func = chrono_types::make_shared<TorqueController>();
-//         new_func->target_angle = target_angle;
-//         new_func->Kp = Kp;
-//         new_func->Kd = Kd;
-//         new_func->max_torque = max_torque;
-//         new_func->motor = motor;
-//         return new_func;
-//     }
-// };
+    virtual ChFunction* Clone() const override
+    {
+        auto new_func = new TorqueController();
+        new_func->target_angle = target_angle;
+        new_func->Kp = Kp;
+        new_func->Kd = Kd;
+        new_func->max_torque = max_torque;
+        new_func->motor = motor;
+        return new_func;
+    }
+};
 
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
@@ -272,13 +272,19 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         sys.Add(link8_to_star);
 
         // 6. 配置关节控制器
-        // 表3中的起始角度
+        // 关节起始角度
         std::vector<std::string> joint_names = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"};
         std::vector<double> init_angles = {1.5862, 0.0910, 2.1837, 0.1037, -0.9215, 1.4654, 1.8753};
 
+        // 关节目标角度
+        std::vector<double> end_angles = {0.8413, 1.1435, 2.1885, 2.1069, -0.2202, 0.7031, 0.4938};
+        
+        // 关节增益系数
+        std::vector<double> Kp_gains = {13.43, 13.58, 15.00, 12.53, 14.32, 11.30, 1.40};
+        std::vector<double> Kd_gains = {63.43, 57.14, 60.00, 142.25, 138.94, 120.20, 110.45};
+
         for (size_t i = 0; i < joint_names.size(); ++i)
         {
-            // 获取电机
             auto motor = urdf_parser.GetChMotor(joint_names[i]);
             if (!motor)
             {
@@ -286,9 +292,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
                 continue;
             }
 
-            std::cout << "[INFO] 配置关节 " << joint_names[i] << std::endl;
-
-            // 转换为旋转电机
             auto rot_motor = std::dynamic_pointer_cast<ChLinkMotorRotation>(motor);
             if (!rot_motor)
             {
@@ -296,21 +299,16 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
                 continue;
             }
 
-            // // 创建扭矩控制器
-            // auto controller = chrono_types::make_shared<TorqueController>();
-            // controller->target_angle = init_angles[i];
-            // controller->motor = rot_motor;
+            // 创建PD控制器
+            auto controller = chrono_types::make_shared<TorqueController>();
+            controller->target_angle = end_angles[i];    // 目标：终止位姿
+            controller->Kp = Kp_gains[i];                // 表5的Kp
+            controller->Kd = Kd_gains[i];                // 表5的Kd
+            controller->max_torque = 100.0;              // ±100 Nm饱和
+            controller->motor = rot_motor;
 
-            // // 根据关节位置调整PID参数
-            // controller->Kp = 800.0 - i * 50.0;
-            // controller->Kd = 80.0 - i * 5.0;
-            // controller->max_torque = 400.0 - i * 30.0;
-
-            // // 设置电机的扭矩函数
-            // urdf_parser.SetMotorFunction(joint_names[i], controller);
-
-            // // arm_motors.push_back(rot_motor);
-            // // controllers.push_back(controller);
+            // 设置电机的扭矩函数
+            urdf_parser.SetMotorFunction(joint_names[i], controller);
         }
 
         // std::cout << "[INFO] 成功配置 " << arm_motors.size() << " 个关节电机" << std::endl;
