@@ -64,6 +64,14 @@ public:
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
+    struct SimulationData {
+        double time;
+        double z_displacement;
+        std::vector<double> joint_angles;      // 关节角度
+        std::vector<double> joint_velocities;  // 关节速度
+        std::vector<double> joint_torques;     // 关节力矩
+    };
+
     chrono::SetChronoDataPath(CHRONO_DATA_DIR);
 
     // 1. 创建物理系统
@@ -222,17 +230,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     sys.Add(link_sc);
 
     // 3. 创建机械臂
-    // std::vector<std::shared_ptr<ChLinkMotorRotationTorque>> arm_motors;
-    // std::vector<std::shared_ptr<TorqueController>> controllers;
-    // URDF文件路径
+    std::vector<std::shared_ptr<ChLinkMotorRotation>> arm_motors;
+    std::vector<std::shared_ptr<TorqueController>> controllers;
     std::string urdf_file = "robot.urdf";
-
+    std::vector<std::string> joint_names = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"};
+        
     try
     {
         // 1. 创建解析器 (构造函数传入文件名)
         ChParserURDF urdf_parser(urdf_file);
-
-        std::cout << "[INFO] 加载URDF模型: " << urdf_parser.GetModelName() << std::endl;
 
         // 2. 配置所有关节为力矩控制模式
         urdf_parser.SetAllJointsActuationType(ChParserURDF::ActuationType::FORCE);
@@ -272,7 +278,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
         // 6. 配置关节控制器
         // 关节起始角度
-        std::vector<std::string> joint_names = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6", "joint7"};
         std::vector<double> init_angles = {1.5862, 0.0910, 2.1837, 0.1037, -0.9215, 1.4654, 1.8753};
 
         // 关节目标角度
@@ -298,6 +303,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
                 continue;
             }
 
+            // 保存电机指针
+            arm_motors.push_back(rot_motor);
+
             // 创建PD控制器
             auto controller = chrono_types::make_shared<TorqueController>();
             controller->target_angle = - end_angles[i] + init_angles[i];    // 目标：终止位姿
@@ -305,6 +313,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
             controller->Kd = Kd_gains[i];                // 表5的Kd
             controller->max_torque = 100.0;              // ±100 Nm饱和
             controller->motor = rot_motor;
+
+            // 保存控制器指针
+            controllers.push_back(controller);
 
             // 设置电机的扭矩函数
             urdf_parser.SetMotorFunction(joint_names[i], controller);
@@ -371,13 +382,85 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
     sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
 
+    // 2. 在仿真循环前创建数据存储
+    std::vector<double> time_history;
+    std::vector<double> z_disp_history;
+    
+    int frame_count = 0;
+    double max_simulation_time = 1000.0;
+    std::vector<SimulationData> data_history;
+
     // 9. 仿真循环
-    while (vis->Run())
+    while (vis->Run() && sys.GetChTime() < max_simulation_time)
     {
-        //vis->RenderFrame(ChFrame<>(ChVector3d(0, 0, 0), QUNIT), 10.0);
         vis->Render();
         sys.DoStepDynamics(0.005);
+
+        // 每10步记录一次数据
+        if (++frame_count % 10 == 0)
+        {
+            double current_time = sys.GetChTime();
+            
+            // 创建数据点
+            SimulationData data_point;
+            data_point.time = current_time;
+            data_point.z_displacement = body_spacecraft->GetPos().z();
+            
+            // 记录每个关节的数据
+            for (size_t i = 0; i < arm_motors.size(); ++i)
+            {
+                if (arm_motors[i])
+                {
+                    // 关节角度 (rad)
+                    data_point.joint_angles.push_back(arm_motors[i]->GetMotorAngle());
+                    // 关节速度 (rad/s)
+                    data_point.joint_velocities.push_back(arm_motors[i]->GetMotorAngleDt());
+                    // 控制力矩 (Nm) - 通过控制器计算
+                    double torque = controllers[i]->GetVal(current_time);
+                    data_point.joint_torques.push_back(torque);
+                }
+                else
+                {
+                    // 如果电机不存在，填充0值
+                    data_point.joint_angles.push_back(0.0);
+                    data_point.joint_velocities.push_back(0.0);
+                    data_point.joint_torques.push_back(0.0);
+                }
+            }
+            
+            data_history.push_back(data_point);
+            
+            // 实时输出到控制台
+            std::cout << "Time: " << current_time 
+                    << "s, Z displacement: " << data_point.z_displacement << "m" << std::endl;
+        }
     }
 
+    std::ofstream data_file("simulation_data.csv");
+    
+    // 写入表头
+    data_file << "time,z_displacement";
+    for (size_t i = 0; i < joint_names.size(); ++i)
+    {
+        data_file << "," << joint_names[i] << "_angle";
+        data_file << "," << joint_names[i] << "_velocity";
+        data_file << "," << joint_names[i] << "_torque";
+    }
+    data_file << "\n";
+
+    // 写入数据
+    for (const auto& data : data_history)
+    {
+        data_file << data.time << "," << data.z_displacement;
+        for (size_t i = 0; i < data.joint_angles.size(); ++i)
+        {
+            data_file << "," << data.joint_angles[i] 
+                    << "," << data.joint_velocities[i] 
+                    << "," << data.joint_torques[i];
+        }
+        data_file << "\n";
+    }
+    data_file.close();
+    std::cout << "数据已保存到 simulation_data.csv" << std::endl;
     return 0;
 }
