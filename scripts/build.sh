@@ -29,7 +29,6 @@ cmake .. \
     -DPython3_ROOT_DIR=$ENV{HOME}/miniconda3 \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_PREFIX_PATH="$ENV{HOME}/urdf_install;$ENV{HOME}/vsgFramework/install;/usr/local/chrono" \
-    -DCMAKE_CXX_FLAGS="-Wno-unused-parameter" \
     -DCMAKE_EXE_LINKER_FLAGS="-L/home/sun/miniconda3/lib -lpython3.13" \
 
 if [ $? -ne 0 ]; then
