@@ -26,7 +26,7 @@ public:
     double max_torque = 100.0;  // ±100 Nm饱和限制
     std::shared_ptr<ChLinkMotorRotation> motor;
 
-    virtual double GetVal(double x) const override
+    virtual double GetVal([[maybe_unused]] double x) const override
     {
         if (!motor)
             return 0;
@@ -39,15 +39,12 @@ public:
         double torque = Kp * error - Kd * current_vel;
 
         // 饱和限制 ±100 Nm
-        if (torque > max_torque)
-            torque = max_torque;
-        if (torque < -max_torque)
-            torque = -max_torque;
+        torque = std::clamp(torque, -max_torque, max_torque);
 
         return torque;
     }
 
-    virtual double GetDer(double x) const override { return 0; }
+    // virtual double GetDer([[maybe_unused]] double x) const override { return 0; }
 
     virtual ChFunction* Clone() const override
     {
@@ -61,16 +58,17 @@ public:
     }
 };
 
+struct SimulationData {
+    double time;
+    double docking_distance;               // 剩余对接距离（沿x方向）
+    std::vector<double> joint_angles;      // 关节角度
+    std::vector<double> joint_velocities;  // 关节速度
+    std::vector<ChVector3d> joint_torques;     // 关节约束力矩
+};
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
-    struct SimulationData {
-        double time;
-        double z_displacement;
-        std::vector<double> joint_angles;      // 关节角度
-        std::vector<double> joint_velocities;  // 关节速度
-        std::vector<double> joint_torques;     // 关节力矩
-    };
+
 
     chrono::SetChronoDataPath(CHRONO_DATA_DIR);
 
@@ -369,7 +367,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     vis->SetWindowSize(ChVector2i(1920, 1080));
     vis->SetWindowTitle("Micro-Satellite Docking Scene");
     vis->SetCameraVertical(CameraVerticalDir::Y);
-    vis->AddCamera(ChVector3d(84.0, -15.0, 3.0), ChVector3d(84.0, 0, 0));
+    vis->AddCamera(ChVector3d(84.0, -5.0, 3.0), ChVector3d(84.0, 0, 0));
     vis->Initialize();
 
     // 8. 求解器设置
@@ -387,24 +385,21 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     std::vector<double> z_disp_history;
     
     int frame_count = 0;
-    double max_simulation_time = 1000.0;
+    double max_simulation_time = 300.0;
     std::vector<SimulationData> data_history;
 
     // 9. 仿真循环
     while (vis->Run() && sys.GetChTime() < max_simulation_time)
     {
-        vis->Render();
-        sys.DoStepDynamics(0.005);
-
-        // 每10步记录一次数据
-        if (++frame_count % 10 == 0)
+        // 每若干步记录一次数据
+        if (frame_count % 1 == 0)
         {
             double current_time = sys.GetChTime();
             
             // 创建数据点
             SimulationData data_point;
             data_point.time = current_time;
-            data_point.z_displacement = body_spacecraft->GetPos().z();
+            data_point.docking_distance = body_star_right->GetPos().x() - body_base->GetPos().x() - star_Lx / 2.0 - base_Lx / 2.0;
             
             // 记录每个关节的数据
             for (size_t i = 0; i < arm_motors.size(); ++i)
@@ -415,48 +410,71 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
                     data_point.joint_angles.push_back(arm_motors[i]->GetMotorAngle());
                     // 关节速度 (rad/s)
                     data_point.joint_velocities.push_back(arm_motors[i]->GetMotorAngleDt());
-                    // 控制力矩 (Nm) - 通过控制器计算
-                    double torque = controllers[i]->GetVal(current_time);
-                    data_point.joint_torques.push_back(torque);
+                    // 关节约束力矩 (Nm)
+                    // double torque = controllers[i]->GetVal(current_time);
+                    // data_point.joint_torques.push_back(torque);
+
+                    ChWrenchd wrench_local = arm_motors[i]->GetReaction1();
+                    ChVector3d torque_local = wrench_local.torque;
+                    
+                    // 转换到世界坐标系
+                    ChFrame<> frame1_abs = arm_motors[i]->GetFrame1Abs();
+                    ChVector3d torque_global = frame1_abs.GetRot().Rotate(wrench_local.torque);
+                    // ChWrenchd wrench_world = frame1_abs.TransformWrenchLocalToParent(wrench_local);
+                    
+                    data_point.joint_torques.push_back(torque_global);
+                    // // data_point.joint_forces_world.push_back(wrench_world.force);
+
+                    // ChWrenchd wrench_local_2 = arm_motors[i]->GetReaction2();
+                    // ChVector3d torque_global_2 = frame2_abs.GetRot().Rotate(wrench_local_2.torque);
+                    // data_point.joint_torques.push_back(torque_global_2);
                 }
                 else
                 {
                     // 如果电机不存在，填充0值
                     data_point.joint_angles.push_back(0.0);
                     data_point.joint_velocities.push_back(0.0);
-                    data_point.joint_torques.push_back(0.0);
+                    data_point.joint_torques.push_back(ChVector3d(0, 0, 0));
                 }
             }
             
             data_history.push_back(data_point);
             
             // 实时输出到控制台
-            std::cout << "Time: " << current_time 
-                    << "s, Z displacement: " << data_point.z_displacement << "m" << std::endl;
+            std::cout << "Model Time: " << current_time 
+                    << "s, Docking Distance: " << data_point.docking_distance << "m" << std::endl;
         }
+
+        vis->Render();
+        sys.DoStepDynamics(0.005);
+        frame_count++;
     }
 
     std::ofstream data_file("simulation_data.csv");
     
     // 写入表头
-    data_file << "time,z_displacement";
+    data_file << "time,docking_distance";
     for (size_t i = 0; i < joint_names.size(); ++i)
     {
         data_file << "," << joint_names[i] << "_angle";
         data_file << "," << joint_names[i] << "_velocity";
-        data_file << "," << joint_names[i] << "_torque";
+        data_file << "," << joint_names[i] << "_tx";
+        data_file << "," << joint_names[i] << "_ty";
+        data_file << "," << joint_names[i] << "_tz";
     }
     data_file << "\n";
 
     // 写入数据
     for (const auto& data : data_history)
     {
-        data_file << data.time << "," << data.z_displacement;
+        data_file << data.time << "," << data.docking_distance;
         for (size_t i = 0; i < data.joint_angles.size(); ++i)
         {
             data_file << "," << data.joint_angles[i] 
-                    << "," << data.joint_velocities[i] 
-                    << "," << data.joint_torques[i];
+                << "," << data.joint_velocities[i] 
+                << "," << data.joint_torques[i].x()
+                << "," << data.joint_torques[i].y()
+                << "," << data.joint_torques[i].z();
         }
         data_file << "\n";
     }
