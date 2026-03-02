@@ -2,8 +2,8 @@
  * @Author: Sun Hao
  * @Email: sunhaonuaa@outlook.com
  * @Date: 2026-03-02 08:48:34
- * @LastEditTime: 2026-03-02 15:35:00
- * @FilePath:
+ * @LastEditTime: 2026-03-02 17:14:54
+ * @FilePath: /manipulator-truss-dynamics/scenarios/relative_motion_elimination.cpp
  * /manipulator-truss-dynamics/scenarios/relative_motion_elimination.cpp
  * @Description: 相对运动消除阶段仿真场景
  *              根据报告《机械臂辅助对接场景动力学仿真分析-消除相对运动阶段控制分析》
@@ -59,7 +59,7 @@ int main() {
 
   ScenarioConfig scenario_cfg;
   scenario_cfg.max_time = 600.0;
-  scenario_cfg.output_file = "results/relative_motion_elimination.csv";
+  scenario_cfg.output_file = "results/relative_motion_elimination/relative_motion_elimination.csv";
 
   ScenarioRunner runner(std::move(satellite));
   runner.Run(scenario_cfg);

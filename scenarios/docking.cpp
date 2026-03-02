@@ -41,7 +41,7 @@ int main()
     // 配置场景
     ScenarioConfig scenario_cfg;
     scenario_cfg.max_time = 300.0;
-    scenario_cfg.output_file = "results/docking.csv";
+    scenario_cfg.output_file = "results/docking/docking.csv";
 
     // 创建运行器并运行
     ScenarioRunner runner(std::move(satellite));
