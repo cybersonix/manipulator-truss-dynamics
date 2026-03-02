@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scienceplots
 
-adams_result_dir = Path('assets/data/Adams_result')
+adams_result_dir = Path('assets/data/docking')
 
 init_angles = np.array([1.5862, 0.0910, 2.1837, 0.1037, -0.9215, 1.4654, 1.8753])
 final_angles = np.array([0.8413, 1.1435, 2.1885, 2.1069, -0.2202, 0.7031, 0.4938])
@@ -14,7 +14,7 @@ plt.style.use(['science', 'ieee', 'no-latex'])
 fig, axes = plt.subplots(4, 2, figsize=(8, 6), sharex=True)
 axes_flat = axes.flatten()
 
-csv_file_path = Path('results/pd_docking.csv')
+csv_file_path = Path('results/docking.csv')
 df_csv = pd.read_csv(csv_file_path)
 
 for i in range(7):

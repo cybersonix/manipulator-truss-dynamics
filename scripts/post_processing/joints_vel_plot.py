@@ -4,14 +4,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scienceplots
 
-adams_result_dir = Path('assets/data/Adams_result')
+adams_result_dir = Path('assets/data/docking')
 
 # 创建 7 个子图（4 行 2 列）
 plt.style.use(['science', 'ieee', 'no-latex'])
 fig, axes = plt.subplots(4, 2, figsize=(8, 6), sharex=True)
 axes_flat = axes.flatten()
 
-csv_file_path = Path('results/pd_docking.csv')
+csv_file_path = Path('results/docking.csv')
 df_csv = pd.read_csv(csv_file_path)
 
 for i in range(7):

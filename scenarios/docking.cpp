@@ -25,8 +25,6 @@ int main()
 
     // 配置模型参数
     ModelConfig model_cfg;
-    // 初始条件（可选，也可以在ScenarioConfig中覆盖）
-    // model_cfg.base_initial_vel = ChVector3d(0, 0.5, 0.2);
 
     // 创建模型（传入控制器，在内部设置）
     SatelliteModel satellite;
@@ -43,14 +41,10 @@ int main()
     // 配置场景
     ScenarioConfig scenario_cfg;
     scenario_cfg.max_time = 300.0;
-    scenario_cfg.output_file = "results/pd_docking.csv";
-    // 如果ModelConfig中已设置初始速度，这里不需要重复设置
-    // 但可以用SetInitialConditions覆盖
+    scenario_cfg.output_file = "results/docking.csv";
 
     // 创建运行器并运行
     ScenarioRunner runner(std::move(satellite));
-    // 可选：覆盖初始条件
-    // runner.SetInitialConditions(ChVector3d(0, 0.5, 0.2), ChVector3d(0, 0, 0));
 
     runner.Run(scenario_cfg);
 
