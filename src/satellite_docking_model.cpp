@@ -1,3 +1,15 @@
+/*
+ * @Author: Sun Hao
+ * @Email: sunhaonuaa@outlook.com
+ * @Date: 2026-03-01 19:25:14
+ * @LastEditTime: 2026-03-02 16:04:37
+ * @FilePath: /manipulator-truss-dynamics/src/satellite_docking_model.cpp
+ * @Description: 卫星对接场景动力学模型实现
+ *              创建包含柔性桁架结构、对接节点星、机械臂基座、航天器平台和7DoF机械臂的动力学系统
+ *              支持关节控制器集成，通过ChFunction适配器实现力矩控制
+ * 
+ * Copyright (c) 2026 by Sun Hao, All Rights Reserved. 
+ */
 #include "satellite_docking_model.h"
 #include "controllers.h"
 #include "chrono/physics/ChLinkMotorRotation.h"
@@ -94,6 +106,7 @@ SatelliteModel CreateSatelliteModel(
 
     // 保存builder2的节点
     auto nodes2 = builder2.GetLastBeamNodes();
+    model.builder2_nodes = nodes2;  // 用于后续设置初始条件
 
     auto link_beam2_star = chrono_types::make_shared<ChLinkMateFix>();
     link_beam2_star->Initialize(nodes2.front(), model.body_star_right);
@@ -179,9 +192,51 @@ SatelliteModel CreateSatelliteModel(
         throw;
     }
 
-    // 设置初始速度
-    model.body_base->SetPosDt(cfg.base_initial_vel);
-    model.body_base->SetAngVelParent(cfg.base_initial_ang_vel);
+    // 设置初始条件
+    if (cfg.target_spacecraft_linear_vel != ChVector3d(0, 0, 0) || 
+        cfg.target_spacecraft_angular_vel != ChVector3d(0, 0, 0)) {
+        
+        // 计算质心位置：builder2轴心，从nodes2.front()向右71.337m
+        ChVector3d builder2_start = ChVector3d(beam2_start_x, 0, 0);
+        ChVector3d center_of_mass = builder2_start + ChVector3d(71.337, 0, 0);
+        
+        ChVector3d omega = cfg.target_spacecraft_angular_vel;
+        ChVector3d v_target = cfg.target_spacecraft_linear_vel;
+        
+        // 辅助函数：计算转动线速度 omega × r
+        auto compute_rotational_velocity = [&](const ChVector3d& r) -> ChVector3d {
+            return ChVector3d(
+                omega.y() * r.z() - omega.z() * r.y(),
+                omega.z() * r.x() - omega.x() * r.z(),
+                omega.x() * r.y() - omega.y() * r.x()
+            );
+        };
+        
+        // body_star_right
+        {
+            ChVector3d r = model.body_star_right->GetPos() - center_of_mass;
+            ChVector3d v_rot = compute_rotational_velocity(r);
+            model.body_star_right->SetPosDt(v_target + v_rot);
+            model.body_star_right->SetAngVelParent(omega);
+        }
+        
+        // builder2柔性梁的节点
+        for (auto& node : model.builder2_nodes) {
+            ChVector3d node_pos = node->GetPos();
+            ChVector3d r = node_pos - center_of_mass;
+            ChVector3d v_rot = compute_rotational_velocity(r);
+            node->SetPosDt(v_target + v_rot);
+            node->SetAngVelParent(omega);
+        }
+        
+        // body_spacecraft
+        {
+            ChVector3d r = model.body_spacecraft->GetPos() - center_of_mass;
+            ChVector3d v_rot = compute_rotational_velocity(r);
+            model.body_spacecraft->SetPosDt(v_target + v_rot);
+            model.body_spacecraft->SetAngVelParent(omega);
+        }
+    }
 
     // 求解器设置
     auto solver = chrono_types::make_shared<ChSolverMINRES>();

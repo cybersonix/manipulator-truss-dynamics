@@ -4,6 +4,7 @@
 #include "chrono/physics/ChSystemSMC.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/fea/ChMesh.h"
+#include "chrono/fea/ChNodeFEAxyzrot.h"
 #include "chrono_parsers/ChParserURDF.h"
 #include "chrono/physics/ChLinkMotorRotation.h"
 #include <vector>
@@ -42,9 +43,10 @@ struct ModelConfig
     // 初始间距
     double initial_gap = 1.1;
 
-    // 添加：初始条件
-    ChVector3d base_initial_vel = ChVector3d(0, 0, 0);
-    ChVector3d base_initial_ang_vel = ChVector3d(0, 0, 0);
+    // 初始条件
+    // 目标航天器的初始线速度和绕质心的初始角速度（施加在body_star_right + builder2 + body_spacecraft）
+    ChVector3d target_spacecraft_linear_vel = ChVector3d(0, 0, 0); 
+    ChVector3d target_spacecraft_angular_vel = ChVector3d(0, 0, 0);
 };
 
 struct SatelliteModel
@@ -59,6 +61,7 @@ struct SatelliteModel
     std::shared_ptr<ChBody> arm_link8; // 末端执行器
     ChVector3d star_half_size;
     ChVector3d base_half_size;
+    std::vector<std::shared_ptr<ChNodeFEAxyzrot>> builder2_nodes;
     std::vector<std::string> joint_names;
     std::vector<std::shared_ptr<JointController>> controllers; // 保存控制器，防止被销毁（因为ChFunction内部使用）
 };
