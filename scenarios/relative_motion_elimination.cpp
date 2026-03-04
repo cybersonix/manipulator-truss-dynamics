@@ -2,7 +2,7 @@
  * @Author: Sun Hao
  * @Email: sunhaonuaa@outlook.com
  * @Date: 2026-03-02 08:48:34
- * @LastEditTime: 2026-03-02 17:14:54
+ * @LastEditTime: 2026-03-04 14:43:26
  * @FilePath: /manipulator-truss-dynamics/scenarios/relative_motion_elimination.cpp
  * /manipulator-truss-dynamics/scenarios/relative_motion_elimination.cpp
  * @Description: 相对运动消除阶段仿真场景
@@ -26,9 +26,13 @@ int main() {
   std::vector<double> target_angles = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
   // PD控制器参数
-  std::vector<double> Kp = {1343.0, 339.5, 750.0, 313.25, 716.0, 282.5, 565.0};
-  std::vector<double> Kd = {3171.5, 2857.0, 3000.0, 7112.5,
-                            6947.0, 6010.0, 6010.0};
+  // std::vector<double> Kp = {1343.0, 339.5, 750.0, 313.25, 716.0, 282.5, 565.0};
+  // std::vector<double> Kd = {3171.5, 2857.0, 3000.0, 7112.5,
+  //                           6947.0, 6010.0, 6010.0};
+
+  std::vector<double> Kp = {13.43, 13.58, 15.00, 12.53, 14.32, 11.30, 1.40};
+  std::vector<double> Kd = {63.43, 57.14, 60.00, 142.25, 138.94, 120.20, 110.45};
+
 
   // 力矩限幅 ±5 Nm
   double torque_limit = 5.0;

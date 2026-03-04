@@ -18,9 +18,9 @@ public:
 struct ScenarioConfig
 {
     // 仿真参数
-    double timestep = 0.005;
-    double max_time = 300.0;
-    int record_interval = 1; // 每多少帧记录一次
+    double timestep = 0.001;
+    double max_time = 600.0;
+    int record_interval = 1;  // 每1帧记录一次
 
     // 输出配置
     std::string output_file = "simulation_data.csv";

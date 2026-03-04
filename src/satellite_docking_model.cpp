@@ -2,7 +2,7 @@
  * @Author: Sun Hao
  * @Email: sunhaonuaa@outlook.com
  * @Date: 2026-03-01 19:25:14
- * @LastEditTime: 2026-03-02 16:04:37
+ * @LastEditTime: 2026-03-04 17:54:28
  * @FilePath: /manipulator-truss-dynamics/src/satellite_docking_model.cpp
  * @Description: 卫星对接场景动力学模型实现
  *              创建包含柔性桁架结构、对接节点星、机械臂基座、航天器平台和7DoF机械臂的动力学系统
@@ -237,17 +237,17 @@ SatelliteModel CreateSatelliteModel(
             model.body_spacecraft->SetAngVelParent(omega);
         }
     }
-
+    
+    model.system->SetTimestepperType(ChTimestepper::Type::TRAPEZOIDAL_LINEARIZED);
+    
     // 求解器设置
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
     model.system->SetSolver(solver);
-    solver->SetMaxIterations(1000);
-    solver->SetTolerance(1e-12);
+    // solver->SetMaxIterations(1000);
+    solver->SetTolerance(1e-8);
     solver->EnableWarmStart(true);
     solver->EnableDiagonalPreconditioner(true);
-
-    model.system->SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
-
+    
     // FEA可视化配置
     auto mvisualizebeam = chrono_types::make_shared<ChVisualShapeFEA>(model.mesh);
     mvisualizebeam->SetFEMdataType(ChVisualShapeFEA::DataType::NODE_SPEED_NORM);
